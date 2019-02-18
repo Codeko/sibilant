@@ -7,6 +7,9 @@ const AudioContextType = window.AudioContext || window.webkitAudioContext;
 // f_1 band for (most) human voice range
 var LOW_FREQ_CUT = 85;
 var HIGH_FREQ_CUT = 583;
+// TODO - this should use the geometric mean, not arithmetic
+// but it seems to be working for now and I don't want to make
+// any changes without thoroughly testing them
 var bandPassMiddleFrequency = ((HIGH_FREQ_CUT - LOW_FREQ_CUT) / 2) + LOW_FREQ_CUT;
 //var bandPassFrequencyRange = HIGH_FREQ_CUT - bandPassMiddleFrequency;
 var Q = bandPassMiddleFrequency / (HIGH_FREQ_CUT - LOW_FREQ_CUT);
@@ -30,7 +33,7 @@ function bandPassFilterNode (audioContext) {
   var bandpass = audioContext.createBiquadFilter();
   bandpass.type = 'bandpass';
   bandpass.frequency.value = bandPassMiddleFrequency;
-  bandpass.Q = Q;
+  bandpass.Q.value = Q;
   return bandpass;
 }
 
