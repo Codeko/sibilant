@@ -1,25 +1,40 @@
 {
-  "name": "sibilant-webaudio",
+  "name": "@rifflearning/sibilant",
   "version": "0.1.5",
   "description": "detect speaking events from webRTC audio",
-  "main": "sibilant.js",
-  "scripts": {
-    "test": "npm test"
-  },
   "keywords": [
     "audio",
     "speaking",
     "web"
   ],
-  "author": "dcalacci@media.mit.edu",
   "license": "MIT",
+  "author": "Dan Calacci <dcalacci@media.mit.edu>",
+  "contributors": [
+    "Jordan Reedie <jordan@riffanalytics.ai>"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rifflearning/sibilant.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rifflearning/sibilant/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "main": "sibilant.js",
+  "files": [],
+  "scripts": {
+    "test": "npm test"
+  },
   "dependencies": {
-    "lodash": "^4.13.1",
+    "lodash": "^4.17.20",
     "microevent": "^1.0.0"
   },
   "devDependencies": {
     "alerts": "^0.1.3",
-    "browserify": "^16.2.2",
-    "http-server": "^0.11.1"
+    "browserify": "^16.5.2",
+    "http-server": "^0.12.3"
   }
 }
