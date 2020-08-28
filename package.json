@@ -1,6 +1,6 @@
 {
   "name": "@rifflearning/sibilant",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "detect speaking events from webRTC audio",
   "keywords": [
     "audio",
