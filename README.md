@@ -4,7 +4,9 @@ detect speaking events from web audio
 
 ## installation
 
-`npm install sibilant-webaudio`
+```sh
+npm install @rifflearning/sibilant
+```
 
 ## usage
 
@@ -16,7 +18,7 @@ up to a web audio stream:
 - `volumeChanged`: emitted any time the volume of the audio stream changes
 
 ```javascript
-const Sibilant = require('sibilant-webaudio')
+import Sibilant from '@rifflearning/sibilant';
 
 var speakingEvents = new Sibilant(stream)
 speakingEvents.bind('speaking', function () {
