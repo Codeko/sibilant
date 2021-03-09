@@ -16,10 +16,10 @@ jobs:
     name: Publish to GPR
     runs-on: ubuntu-latest
     steps:
-      - name: Use Node.js 12.x
+      - name: Use Node.js 14.x
         uses: actions/setup-node@v1
         with:
-          node-version: 12.x
+          node-version: 14.x
           registry-url: https://npm.pkg.github.com/
 
       - uses: actions/checkout@v2
@@ -34,13 +34,39 @@ jobs:
 
       - name: Install dependencies based on package-lock.json
         run: npm ci
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GPR_PRIVATE_READ_TOKEN }}
 
       - name: Publish
-        run: npm publish
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-npm:
+    name: Publish to NPM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use Node.js 14.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.x
+          registry-url: https://registry.npmjs.org/
+
+      - uses: actions/checkout@v2
+
+      - name: Cache node modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies based on package-lock.json
+        run: npm ci
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_PUBLISH_TOKEN}}
 
   # TODO: Create a release as well perhaps using actions/create-release@v1
   # Will need to figure out a way to set the release body. I'd like to
