@@ -54,14 +54,13 @@ function speakingDetectionNode (audioContext, analyser, threshold, emitter) {
     //var maxVolume = _.max(_.filter(fftBins, function (v) { return v < 0 }));
     //currentVolume = maxVolume;
     currentVolume = getMaxVolume(analyser, fftBins);
-    volumes.push({timestamp: Date.now(),
-                  vol: currentVolume});
     emitter.trigger('volumeChange', currentVolume);
     // speaking, add the date to the stack, clear quiet record
     if (currentVolume > threshold) {
       emitter.trigger('speaking');
       speakingTimes.push(new Date());
       quietHistory = [];
+      volumes.push({timestamp: Date.now(), vol: currentVolume});
     } else if (speakingTimes.length > 0) {
       if (hasStoppedSpeaking()) {
         emitter.trigger('stoppedSpeaking', {'start': _.min(speakingTimes), 'end': _.max(speakingTimes), 'volumes': volumes});
@@ -69,6 +68,7 @@ function speakingDetectionNode (audioContext, analyser, threshold, emitter) {
         speakingTimes = [];
       } else {
         quietHistory.push(new Date());
+        volumes.push({timestamp: Date.now(), vol: currentVolume});
       }
     }
   };
