@@ -1,0 +1,69 @@
+# Release Workflow to publish this repo as an npm package and create a "release"
+# This workflow runs when a tag that starts with a 'v' is pushed to the repository
+#
+# Currently creating the release is a TODO
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # Publish NPM package to GitHub Package Registry (GPR)
+  # TODO: verify that the version being published matches the tag (github.ref) and abort if it doesn't
+  publish-gpr:
+    name: Publish to GPR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use Node.js 12.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12.x
+          registry-url: https://npm.pkg.github.com/
+
+      - uses: actions/checkout@v2
+
+      - name: Cache node modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies based on package-lock.json
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GPR_PRIVATE_READ_TOKEN }}
+
+      - name: Publish
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # TODO: Create a release as well perhaps using actions/create-release@v1
+  # Will need to figure out a way to set the release body. I'd like to
+  # find the PRs merged since the previous release and list them in the body.
+  # and possibly have a link to the package published by the publish-gpr job in
+  # this workflow
+  # Another option is to create a draft release w/ a template for the body and
+  # let someone manually update it.
+  ####create-release:
+  ####  name: Create Release
+  ####  runs-on: ubuntu-latest
+  ####  steps:
+  ####    - name: Create Release
+  ####      id: create_release
+  ####      uses: actions/create-release@v1
+  ####      env:
+  ####        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  ####      with:
+  ####        tag_name: ${{ github.ref }}
+  ####        release_name: Release ${{ github.ref }}
+  ####        body: |
+  ####          Changes in this Release
+  ####          - First Change
+  ####          - Second Change
+  ####        draft: false
+  ####        prerelease: false
