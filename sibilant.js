@@ -5,22 +5,28 @@ const _ = require('lodash');
 const AudioContextType = window.AudioContext || window.webkitAudioContext;
 
 // f_1 band for (most) human voice range
-var LOW_FREQ_CUT = 85;
-var HIGH_FREQ_CUT = 583;
+const LOW_FREQ_CUT = 85;
+const HIGH_FREQ_CUT = 583;
 // TODO - this should use the geometric mean, not arithmetic
 // but it seems to be working for now and I don't want to make
 // any changes without thoroughly testing them
-var bandPassMiddleFrequency = ((HIGH_FREQ_CUT - LOW_FREQ_CUT) / 2) + LOW_FREQ_CUT;
-//var bandPassFrequencyRange = HIGH_FREQ_CUT - bandPassMiddleFrequency;
-var Q = bandPassMiddleFrequency / (HIGH_FREQ_CUT - LOW_FREQ_CUT);
+const bandPassMiddleFrequency = ((HIGH_FREQ_CUT - LOW_FREQ_CUT) / 2) + LOW_FREQ_CUT;
+const Q = bandPassMiddleFrequency / (HIGH_FREQ_CUT - LOW_FREQ_CUT);
 
-function getMaxVolume (analyser, fftBins) {
-  var maxVolume = -Infinity;
-  analyser.getFloatFrequencyData(fftBins);
+function getMaxVolume (volumesByFrequency) {
+  let maxVolume = -Infinity;
 
-  for(var i=4, ii=fftBins.length; i < ii; i++) {
-    if (fftBins[i] > maxVolume && fftBins[i] < 0) {
-      maxVolume = fftBins[i];
+  // I have no idea why this loop starts at 4
+  // I would guess it has something to do with the lower frequencies
+  // being irrelevant or undesirable? But if so then we should tighten our bandpass
+  // filter.
+  // - jr 3.9.21
+  for (let i=4; i < volumesByFrequency.length; i++) {
+    // i'm assuming the < 0 check here is just for sanity
+    // because to the best of my knowledge 0 is the maximum possible value
+    // - jr
+    if (volumesByFrequency[i] > maxVolume && volumesByFrequency[i] < 0) {
+      maxVolume = volumesByFrequency[i];
     }
   };
 
@@ -30,7 +36,7 @@ function getMaxVolume (analyser, fftBins) {
 
 // bandpass filter from AudioContext
 function bandPassFilterNode (audioContext) {
-  var bandpass = audioContext.createBiquadFilter();
+  const bandpass = audioContext.createBiquadFilter();
   bandpass.type = 'bandpass';
   bandpass.frequency.value = bandPassMiddleFrequency;
   bandpass.Q.value = Q;
@@ -38,37 +44,52 @@ function bandPassFilterNode (audioContext) {
 }
 
 function speakingDetectionNode (audioContext, analyser, threshold, emitter) {
-  var javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
-  var speakingTimes = [];
-  var quietHistory = []; // only contains continuous 'quiet' times
-  var currentVolume = -Infinity;
-  var volumes = [];
+  const javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+  let speakingStartTime = null;
+  let lastSpeakingTime = null;
+  let currentVolume = -Infinity;
+  let volumes = [];
 
-  var hasStoppedSpeaking = function () {
-    return (_.max(quietHistory) - _.min(quietHistory) > 250);
-  };
+  // returns true if the user has not spoken in 250ms or more
+  // no idea why this number was chosen
+  const hasStoppedSpeaking = () => ((Date.now() - lastSpeakingTime) > 250);
 
   javascriptNode.onaudioprocess = function () {
-    var fftBins = new Float32Array(analyser.frequencyBinCount);
+    const fftBins = new Float32Array(analyser.frequencyBinCount);
+    // the results of getFloatFrequencyData are placed into fftBins
     analyser.getFloatFrequencyData(fftBins);
-    //var maxVolume = _.max(_.filter(fftBins, function (v) { return v < 0 }));
-    //currentVolume = maxVolume;
-    currentVolume = getMaxVolume(analyser, fftBins);
+    currentVolume = getMaxVolume(fftBins);
+
     emitter.trigger('volumeChange', currentVolume);
-    // speaking, add the date to the stack, clear quiet record
     if (currentVolume > threshold) {
+      lastSpeakingTime = Date.now();
+      if (speakingStartTime === null) {
+        // this is the start of a new utterance
+        speakingStartTime = lastSpeakingTime;
+      }
       emitter.trigger('speaking');
-      speakingTimes.push(new Date());
-      quietHistory = [];
-      volumes.push({timestamp: Date.now(), vol: currentVolume});
-    } else if (speakingTimes.length > 0) {
+      volumes.push({
+        timestamp: (lastSpeakingTime - speakingStartTime),
+        vol: currentVolume,
+      });
+    // the user is not speaking but we're currently in a speaking event
+    } else if (speakingStartTime !== null) {
       if (hasStoppedSpeaking()) {
-        emitter.trigger('stoppedSpeaking', {'start': _.min(speakingTimes), 'end': _.max(speakingTimes), 'volumes': volumes});
+        emitter.trigger('stoppedSpeaking', {
+          'start': new Date(speakingStartTime),
+          'end': new Date(lastSpeakingTime),
+          'volumes': volumes,
+        });
+
+        // utterance is officially ended,
+        // reset all the variables and start again
         volumes = [];
-        speakingTimes = [];
+        speakingStartTime = null;
+        lastSpeakingTime = null;
+      // the user is not speaking in this exact moment,
+      // but we have not determined the speaking event to have fully stopped yet
       } else {
-        quietHistory.push(new Date());
-        volumes.push({timestamp: Date.now(), vol: currentVolume});
+        volumes.push({timestamp: Date.now() - speakingStartTime, vol: currentVolume});
       }
     }
   };
@@ -80,8 +101,7 @@ var audioContext = null;
 class Sibilant {
   constructor (stream, options) {
     options = options || {};
-    var self = this;
-    // var useBandPass = (options.useBandPass || true)
+    const self = this;
     this.fftSize = (options.fftSize || 512);
     this.threshold = (options.threshold || -40);
     this.smoothing = (options.smoothing || 0.2);
@@ -95,7 +115,6 @@ class Sibilant {
     this.audioContext = options.audioContext || audioContext || new AudioContextType();
 
     this.sourceNode = null;
-    this.fftBins = null;
     this.analyser = null;
 
     this.getStream(stream);
@@ -103,12 +122,11 @@ class Sibilant {
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = this.fftSize;
     this.analyser.smoothingTimeConstant = this.smoothing;
-    this.fftBins = new Float32Array(this.analyser.frequencyBinCount);
 
     this.audioSource = this.sourceNode;
 
-    var speakingNode = speakingDetectionNode(this.audioContext, this.analyser, this.threshold, this);
-    var bandPassNode = bandPassFilterNode(this.audioContext);
+    const speakingNode = speakingDetectionNode(this.audioContext, this.analyser, this.threshold, this);
+    const bandPassNode = bandPassFilterNode(this.audioContext);
     this.audioSource.connect(this.analyser);
     if (this.passThrough) {
       console.log('passing through', stream);
@@ -121,15 +139,21 @@ class Sibilant {
   }
 
   getStream (stream) {
-    if (stream.jquery) stream = stream[0];
+    // no idea what this does, can't find any documentation about it either
+    if (stream.jquery) {
+      stream = stream[0];
+    }
+
     if (stream instanceof HTMLAudioElement || stream instanceof HTMLVideoElement) {
       //Audio Tag
       this.sourceNode = this.audioContext.createMediaElementSource(stream);
-//      if (typeof play === 'undefined') play = true;
+      // this.threshold already has a default value of -40
+      // when initialized in the constructor
+      // why are we doing this here with a different value?
       this.threshold = this.threshold || -50;
     } else {
-      //WebRTC Stream
       this.sourceNode = this.audioContext.createMediaStreamSource(stream);
+      // same as above
       this.threshold = this.threshold || -50;
     }
   }
