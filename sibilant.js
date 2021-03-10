@@ -1,5 +1,4 @@
 const microevent = require('microevent');
-const _ = require('lodash');
 
 // get audio context
 const AudioContextType = window.AudioContext || window.webkitAudioContext;
@@ -101,7 +100,6 @@ var audioContext = null;
 class Sibilant {
   constructor (stream, options) {
     options = options || {};
-    const self = this;
     this.fftSize = (options.fftSize || 512);
     this.threshold = (options.threshold || -40);
     this.smoothing = (options.smoothing || 0.2);

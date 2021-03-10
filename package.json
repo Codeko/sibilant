@@ -29,7 +29,6 @@
     "test": "npm test"
   },
   "dependencies": {
-    "lodash": "^4.17.20",
     "microevent": "^1.0.0"
   },
   "devDependencies": {
