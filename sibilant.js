@@ -32,7 +32,6 @@ function getMaxVolume (volumesByFrequency) {
   return maxVolume;
 }
 
-
 // bandpass filter from AudioContext
 function bandPassFilterNode (audioContext) {
   const bandpass = audioContext.createBiquadFilter();
@@ -43,7 +42,7 @@ function bandPassFilterNode (audioContext) {
 }
 
 function speakingDetectionNode (audioContext, analyser, threshold, emitter) {
-  const javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+  const javascriptNode = AudioWorkletNode(audioContext, 'processor-audio')
   let speakingStartTime = null;
   let lastSpeakingTime = null;
   let currentVolume = -Infinity;
